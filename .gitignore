@@ -4,3 +4,5 @@
 node_modules
 CONVERSATION_HISTORY.jsonl
 !.env.example
+.next
+dist/
