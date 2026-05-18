@@ -1,0 +1,8 @@
+# Docker Compose override for using GitHub Container Registry pre-built images
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.ghcr.yml up -d
+
+services:
+  portal:
+    image: ghcr.io/jsserve-org/linux-upgrade-manager:${TAG:-latest}
+    build: !reset null  # Disable build, use pre-built image only
+    pull_policy: always  # Always pull latest image

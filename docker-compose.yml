@@ -19,6 +19,7 @@ services:
       - lum-network
 
   portal:
+    image: ${PORTAL_IMAGE:-ghcr.io/jsserve-org/linux-upgrade-manager:master}
     build:
       context: ./portal
       dockerfile: Dockerfile
