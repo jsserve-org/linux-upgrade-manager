@@ -1,0 +1,3 @@
+{
+  "/api/install/agent/[arch]/route": "app/api/install/agent/[arch]/route.js"
+}

@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "functions": {
+    "/api/admin/cves": {},
+    "/api/admin/cves/sync": {
+      "maxDuration": 300
+    },
+    "/api/admin/enroll-tokens": {},
+    "/api/admin/enroll-tokens/[token]": {},
+    "/api/admin/instances/[id]": {},
+    "/api/admin/jobs": {},
+    "/api/agent/enroll": {},
+    "/api/agent/heartbeat": {},
+    "/api/agent/jobs": {},
+    "/api/agent/jobs/[id]/report": {},
+    "/api/auth/[...all]": {},
+    "/api/install/agent/[arch]": {},
+    "/install.sh": {}
+  }
+}

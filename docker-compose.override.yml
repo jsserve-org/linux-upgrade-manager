@@ -1,0 +1,37 @@
+# Development overrides for docker-compose
+# This file is automatically loaded by docker-compose when present
+
+services:
+  portal:
+    build:
+      target: deps  # Use deps stage for dev
+    command: ["npm", "run", "dev"]
+    environment:
+      NODE_ENV: development
+    volumes:
+      # Mount source code for hot reload
+      - ./portal:/app
+      - /app/node_modules
+      - /app/.next
+    ports:
+      - "${PORTAL_PORT:-3001}:3001"
+    # Override healthcheck for dev (dev server takes longer)
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3001/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  # Optional: Adminer for database management in dev
+  adminer:
+    image: adminer
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+    depends_on:
+      - postgres
+    networks:
+      - lum-network

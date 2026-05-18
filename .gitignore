@@ -1,0 +1,6 @@
+.env
+.env.*
+.DS_Store
+node_modules
+CONVERSATION_HISTORY.jsonl
+!.env.example

@@ -1,0 +1,90 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-lum}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lum}
+      POSTGRES_DB: ${POSTGRES_DB:-lum}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - lum_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-lum}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - lum-network
+
+  portal:
+    build:
+      context: ./portal
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      # Database
+      DATABASE_URL: postgres://${POSTGRES_USER:-lum}:${POSTGRES_PASSWORD:-lum}@postgres:5432/${POSTGRES_DB:-lum}
+      
+      # Better Auth
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3001}
+      
+      # OAuth / Authentik SSO (optional)
+      OAUTH_ISSUER: ${OAUTH_ISSUER:-}
+      OAUTH_CLIENT_ID: ${OAUTH_CLIENT_ID:-}
+      OAUTH_CLIENT_SECRET: ${OAUTH_CLIENT_SECRET:-}
+      
+      # Enroll token seed (for first boot)
+      ENROLL_TOKEN: ${ENROLL_TOKEN:-changeme}
+      
+      # Node env
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: 3001
+    ports:
+      - "${PORTAL_PORT:-3001}:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      # Persist uploads/generated agent binaries
+      - lum_uploads:/app/uploads
+    networks:
+      - lum-network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3001/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Optional: Redis for caching/sessions (commented out by default)
+  # redis:
+  #   image: redis:7-alpine
+  #   restart: unless-stopped
+  #   volumes:
+  #     - lum_redis:/data
+  #   networks:
+  #     - lum-network
+
+  # Optional: Agent builder service for CI/CD agent builds
+  # agent-builder:
+  #   build:
+  #     context: ./agent
+  #     dockerfile: Dockerfile.builder
+  #   volumes:
+  #     - ./agent/dist:/output
+  #   command: ["sh", "-c", "bun run build && cp dist/* /output/"]
+
+volumes:
+  lum_pg:
+    driver: local
+  lum_uploads:
+    driver: local
+  # lum_redis:
+  #   driver: local
+
+networks:
+  lum-network:
+    driver: bridge
