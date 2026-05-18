@@ -1,6 +1,0 @@
-{
-  "version": 3,
-  "sources": [],
-  "sections": [
-    {"offset": {"line": 4, "column": 0}, "map": {"version":3,"sources":["file:///Users/howard/ai/linux_upgrade_manager/portal/instrumentation.ts"],"sourcesContent":["export async function register() {\n  if (process.env.NEXT_RUNTIME === \"nodejs\") {\n    const { ensureSeedToken } = await import(\"./lib/queries\");\n    await ensureSeedToken().catch((e) =>\n      console.error(\"[lum] failed to seed enroll token:\", e)\n    );\n\n    if (process.env.LUM_DISABLE_CVE_SYNC !== \"1\") {\n      const { startCveSyncLoop } = await import(\"./lib/cve-sync\");\n      startCveSyncLoop();\n    }\n  }\n}\n"],"names":["register","ensureSeedToken","catch","e","console","error","process","env","LUM_DISABLE_CVE_SYNC","startCveSyncLoop"],"mappings":";;;;AAAO,eAAeA;IACpB,wCAA2C;QACzC,MAAM,EAAEC,eAAe,EAAE,GAAG;QAC5B,MAAMA,kBAAkBC,KAAK,CAAC,CAACC,IAC7BC,QAAQC,KAAK,CAAC,sCAAsCF;QAGtD,IAAIG,QAAQC,GAAG,CAACC,oBAAoB,KAAK,KAAK;YAC5C,MAAM,EAAEC,gBAAgB,EAAE,GAAG;YAC7BA;QACF;IACF;AACF"}}]
-}

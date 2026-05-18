@@ -1,9 +1,0 @@
-{"timestamp":"00:00:00.999","source":"Server","level":"WARN","message":"⚠ The \"middleware\" file convention is deprecated. Please use \"proxy\" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy"}
-{"timestamp":"00:00:01.143","source":"Server","level":"LOG","message":""}
-{"timestamp":"00:00:09.235","source":"Server","level":"WARN","message":"2026-05-17T06:14:25.394Z WARN [Better Auth]: [better-auth] Warning: your BETTER_AUTH_SECRET should be at least 32 characters long for adequate security. Generate one with `npx auth secret` or `openssl rand -base64 32`."}
-{"timestamp":"00:00:09.236","source":"Server","level":"WARN","message":"2026-05-17T06:14:25.395Z WARN [Better Auth]: [better-auth] Warning: your BETTER_AUTH_SECRET appears low-entropy. Use a randomly generated secret for production."}
-{"timestamp":"00:00:09.462","source":"Server","level":"WARN","message":"2026-05-17T06:14:25.621Z WARN [Better Auth]: [better-auth] Warning: your BETTER_AUTH_SECRET should be at least 32 characters long for adequate security. Generate one with `npx auth secret` or `openssl rand -base64 32`."}
-{"timestamp":"00:00:09.463","source":"Server","level":"WARN","message":"2026-05-17T06:14:25.622Z WARN [Better Auth]: [better-auth] Warning: your BETTER_AUTH_SECRET appears low-entropy. Use a randomly generated secret for production."}
-{"timestamp":"01:30:03.607","source":"Browser","level":"INFO","message":"%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold"}
-{"timestamp":"01:30:06.723","source":"Server","level":"ERROR","message":"2026-05-17T07:44:22.835Z ERROR [Better Auth]: TypeError TypeError: fetch failed"}
-{"timestamp":"01:30:06.760","source":"Server","level":"ERROR","message":"# SERVER_ERROR:  TypeError: fetch failed"}

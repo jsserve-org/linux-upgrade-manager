@@ -1,3 +1,0 @@
-{
-  "/api/admin/enroll-tokens/[token]/route": "app/api/admin/enroll-tokens/[token]/route.js"
-}
