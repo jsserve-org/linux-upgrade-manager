@@ -18,9 +18,7 @@ const NAV = [
   { href: "/cves", label: "CVE feed", icon: Shield },
   { href: "/jobs", label: "Activity", icon: Activity },
 ];
-const MGMT = [
-  { href: "/enroll", label: "Enrollment", icon: KeyRound },
-];
+const MGMT = [{ href: "/enroll", label: "Enrollment", icon: KeyRound }];
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -38,7 +36,7 @@ export function Sidebar() {
           </span>
           <div className="leading-tight">
             <div className="text-[13px] font-semibold tracking-tight text-foreground">
-              Patchwerk
+              patchway
             </div>
             <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
               upgrade hub
@@ -58,7 +56,9 @@ export function Sidebar() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <ShieldAlert className="h-3.5 w-3.5 text-[hsl(var(--accent))]" />
-            <span className="text-[11px] font-medium text-foreground/90">Hub healthy</span>
+            <span className="text-[11px] font-medium text-foreground/90">
+              Hub healthy
+            </span>
           </div>
           <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
             v0.1.0
@@ -98,7 +98,7 @@ function Section({
                   "group relative flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13px] transition-colors",
                   active
                     ? "bg-background/70 text-foreground"
-                    : "text-muted-foreground hover:bg-background/40 hover:text-foreground"
+                    : "text-muted-foreground hover:bg-background/40 hover:text-foreground",
                 )}
               >
                 {active && (
@@ -107,7 +107,9 @@ function Section({
                 <Icon
                   className={cn(
                     "h-3.5 w-3.5 transition-colors",
-                    active ? "text-[hsl(var(--accent))]" : "text-muted-foreground/70 group-hover:text-foreground"
+                    active
+                      ? "text-[hsl(var(--accent))]"
+                      : "text-muted-foreground/70 group-hover:text-foreground",
                   )}
                 />
                 {n.label}

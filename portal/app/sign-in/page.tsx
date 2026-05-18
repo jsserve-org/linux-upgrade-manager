@@ -11,7 +11,9 @@ export default async function SignInPage({
   searchParams: Promise<{ next?: string }>;
 }) {
   const sp = await searchParams;
-  const session = await auth.api.getSession({ headers: await headers() }).catch(() => null);
+  const session = await auth.api
+    .getSession({ headers: await headers() })
+    .catch(() => null);
   if (session) redirect(sp.next ?? "/");
 
   return (
@@ -22,7 +24,9 @@ export default async function SignInPage({
             <span className="font-mono text-[12px] font-semibold">L</span>
           </span>
           <div>
-            <div className="text-[14px] font-semibold tracking-tight">Patchwerk</div>
+            <div className="text-[14px] font-semibold tracking-tight">
+              patchway
+            </div>
             <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
               upgrade hub
             </div>
@@ -33,10 +37,12 @@ export default async function SignInPage({
           <div className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
             authentication required
           </div>
-          <h1 className="mt-1.5 text-[20px] font-semibold tracking-tight">Sign in</h1>
+          <h1 className="mt-1.5 text-[20px] font-semibold tracking-tight">
+            Sign in
+          </h1>
           <p className="mt-1 text-[13px] text-muted-foreground">
-            Authenticate through Authentik. Access is gated by the policies bound
-            to this application in your Authentik instance.
+            Authenticate through Authentik. Access is gated by the policies
+            bound to this application in your Authentik instance.
           </p>
 
           <div className="mt-6">
@@ -50,9 +56,9 @@ export default async function SignInPage({
                 <p className="mt-1 text-[12.5px] text-muted-foreground">
                   Set <code className="font-mono">OAUTH_ISSUER</code>,{" "}
                   <code className="font-mono">OAUTH_CLIENT_ID</code>, and{" "}
-                  <code className="font-mono">OAUTH_CLIENT_SECRET</code>, then restart.
-                  See <code className="font-mono">.env.example</code> for the
-                  Authentik issuer URL format.
+                  <code className="font-mono">OAUTH_CLIENT_SECRET</code>, then
+                  restart. See <code className="font-mono">.env.example</code>{" "}
+                  for the Authentik issuer URL format.
                 </p>
               </div>
             )}
