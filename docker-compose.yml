@@ -21,7 +21,7 @@ services:
   portal:
     image: ${PORTAL_IMAGE:-ghcr.io/jsserve-org/linux-upgrade-manager:master}
     build:
-      context: ./portal
+      context: .
       dockerfile: Dockerfile
     restart: unless-stopped
     environment:
