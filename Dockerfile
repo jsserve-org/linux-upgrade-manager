@@ -48,9 +48,9 @@ RUN addgroup --system --gid 1001 nodejs && \
 # Create uploads directory
 RUN mkdir -p /app/uploads && chown nextjs:nodejs /app/uploads
 
-# Copy agent binaries
-COPY --from=agent-builder /agent/dist/lum-agent-linux-x64 /app/agent-dist/lum-agent-linux-x64
-COPY --from=agent-builder /agent/dist/lum-agent-linux-arm64 /app/agent-dist/lum-agent-linux-arm64
+# Copy agent binaries to expected location (../agent/dist from /app)
+COPY --from=agent-builder /agent/dist/lum-agent-linux-x64 /app/agent/dist/lum-agent-linux-x64
+COPY --from=agent-builder /agent/dist/lum-agent-linux-arm64 /app/agent/dist/lum-agent-linux-arm64
 
 # Copy portal files
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
@@ -76,7 +76,6 @@ RUN chmod +x /app/start.sh && chown nextjs:nodejs /app/start.sh
 USER nextjs
 EXPOSE 3001
 ENV HOSTNAME="0.0.0.0"
-ENV LUM_AGENT_DIST=/app/agent-dist
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
   CMD wget --spider -q http://localhost:3001/api/health || exit 1
