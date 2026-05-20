@@ -81,6 +81,8 @@ export type EnrollFacts = {
   arch?: string;
   pkg_manager?: string;
   hostname?: string;
+  packages?: { name: string; version?: string; source?: string }[];
+  docker?: Instance["dockerInventory"];
 };
 
 export async function enrollInstance(
@@ -102,6 +104,8 @@ export async function enrollInstance(
     kernel: facts.kernel ?? null,
     arch: facts.arch ?? null,
     pkgManager: facts.pkg_manager ?? null,
+    packageInventory: normalizePackages(facts.packages),
+    dockerInventory: normalizeDockerInventory(facts.docker),
     enrolledAt: now,
     lastSeen: now,
   });
@@ -121,9 +125,60 @@ export async function heartbeatInstance(
   if (facts.kernel) set.kernel = facts.kernel;
   if (facts.arch) set.arch = facts.arch;
   if (facts.pkg_manager) set.pkgManager = facts.pkg_manager;
+  if (facts.packages) set.packageInventory = normalizePackages(facts.packages);
+  if (facts.docker) set.dockerInventory = normalizeDockerInventory(facts.docker);
   if (updatesAvailable !== null) set.updatesAvailable = updatesAvailable;
   if (securityUpdates !== null) set.securityUpdates = securityUpdates;
   await db.update(instances).set(set).where(eq(instances.id, id));
+}
+
+function normalizePackages(pkgs: EnrollFacts["packages"]) {
+  if (!Array.isArray(pkgs)) return [];
+  const seen = new Set<string>();
+  return pkgs
+    .filter((p) => p && typeof p.name === "string")
+    .map((p) => ({
+      name: p.name.trim().slice(0, 120),
+      version: p.version?.trim().slice(0, 160),
+      source: p.source?.trim().slice(0, 40),
+    }))
+    .filter((p) => {
+      if (!p.name || seen.has(p.name)) return false;
+      seen.add(p.name);
+      return true;
+    })
+    .slice(0, 5000);
+}
+
+function normalizeDockerInventory(docker: EnrollFacts["docker"]) {
+  return {
+    containers: Array.isArray(docker?.containers)
+      ? docker.containers
+          .filter((c) => c && typeof c.name === "string")
+          .map((c) => ({
+            id: String(c.id ?? "").slice(0, 64),
+            name: String(c.name ?? "").slice(0, 160),
+            image: String(c.image ?? "").slice(0, 240),
+            imageId: c.imageId ? String(c.imageId).slice(0, 120) : undefined,
+            state: c.state ? String(c.state).slice(0, 40) : undefined,
+            status: c.status ? String(c.status).slice(0, 160) : undefined,
+          }))
+          .slice(0, 500)
+      : [],
+    images: Array.isArray(docker?.images)
+      ? docker.images
+          .filter((i) => i && typeof i.repository === "string")
+          .map((i) => ({
+            id: String(i.id ?? "").slice(0, 120),
+            repository: String(i.repository ?? "").slice(0, 240),
+            tag: String(i.tag ?? "").slice(0, 120),
+            digest: i.digest ? String(i.digest).slice(0, 240) : undefined,
+            created: i.created ? String(i.created).slice(0, 80) : undefined,
+            size: i.size ? String(i.size).slice(0, 80) : undefined,
+          }))
+          .slice(0, 500)
+      : [],
+  };
 }
 
 // ---------- jobs ----------
@@ -247,6 +302,14 @@ export type CveFilter = {
   limit?: number;
 };
 
+export type AffectedCve = Cve & {
+  affected: {
+    instanceId: string;
+    hostname: string;
+    reasons: string[];
+  }[];
+};
+
 export async function listCves(f: CveFilter = {}): Promise<Cve[]> {
   const conds = [];
   if (f.q && f.q.trim()) {
@@ -273,6 +336,109 @@ export async function listCves(f: CveFilter = {}): Promise<Cve[]> {
 export async function getCve(id: string): Promise<Cve | null> {
   const [row] = await db.select().from(cves).where(eq(cves.id, id));
   return row ?? null;
+}
+
+export async function listAffectedCves(f: CveFilter = {}): Promise<AffectedCve[]> {
+  const candidates = await listCves({ ...f, limit: Math.max(f.limit ?? 250, 1000) });
+  const fleet = await listInstances();
+  const out: AffectedCve[] = [];
+  for (const cve of candidates) {
+    const affected = fleet
+      .map((inst) => ({
+        instanceId: inst.id,
+        hostname: inst.hostname,
+        reasons: matchCveToInstance(cve, inst),
+      }))
+      .filter((m) => m.reasons.length > 0);
+    if (affected.length) out.push({ ...cve, affected });
+    if (out.length >= (f.limit ?? 250)) break;
+  }
+  return out;
+}
+
+export async function affectedCveSeverityCounts(sinceMs?: number) {
+  const rows = await listAffectedCves({ sinceMs, limit: 2000 });
+  const out = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, NONE: 0, UNKNOWN: 0 };
+  for (const r of rows) (out as any)[r.severity] += 1;
+  return out;
+}
+
+function matchCveToInstance(cve: Cve, inst: Instance): string[] {
+  const haystack = cve.cpes.join("\n").toLowerCase();
+  if (!haystack) return [];
+  const reasons = new Set<string>();
+  for (const token of instanceMatchTokens(inst)) {
+    if (token.value.length < 3) continue;
+    if (haystack.includes(token.value)) reasons.add(token.label);
+  }
+  return [...reasons].slice(0, 8);
+}
+
+function instanceMatchTokens(inst: Instance): { value: string; label: string }[] {
+  const tokens: { value: string; label: string }[] = [];
+  const add = (value: string | null | undefined, label: string) => {
+    const clean = normalizeCveToken(value);
+    if (clean) tokens.push({ value: clean, label });
+  };
+
+  add(inst.osName, inst.osName ? `OS: ${inst.osName}` : "OS");
+  for (const part of osAliases(inst.osName)) add(part, `OS: ${inst.osName}`);
+
+  for (const pkg of inst.packageInventory ?? []) {
+    add(pkg.name, `Package: ${pkg.name}`);
+  }
+
+  const docker = inst.dockerInventory;
+  for (const image of docker?.images ?? []) {
+    for (const part of dockerImageTokens(`${image.repository}:${image.tag}`)) {
+      add(part, `Image: ${image.repository}:${image.tag}`);
+    }
+  }
+  for (const container of docker?.containers ?? []) {
+    for (const part of dockerImageTokens(container.image)) {
+      add(part, `Container: ${container.image}`);
+    }
+  }
+
+  const seen = new Set<string>();
+  return tokens.filter((t) => {
+    const key = `${t.value}:${t.label}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function normalizeCveToken(value: string | null | undefined) {
+  const clean = String(value ?? "")
+    .toLowerCase()
+    .replace(/^sha256:/, "")
+    .replace(/[^a-z0-9_.+-]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  if (!clean || clean === "latest" || clean === "none" || clean === "unknown") return null;
+  return clean;
+}
+
+function osAliases(osName?: string | null) {
+  const s = osName?.toLowerCase() ?? "";
+  if (s.includes("debian")) return ["debian", "debian_linux"];
+  if (s.includes("ubuntu")) return ["ubuntu", "ubuntu_linux"];
+  if (s.includes("fedora")) return ["fedora"];
+  if (s.includes("rocky")) return ["rocky", "rocky_linux"];
+  if (s.includes("alma")) return ["almalinux", "alma_linux"];
+  if (s.includes("red hat") || s === "rhel") return ["redhat", "red_hat_enterprise_linux"];
+  if (s.includes("centos")) return ["centos"];
+  if (s.includes("suse")) return ["suse", "opensuse"];
+  if (s.includes("arch")) return ["arch_linux"];
+  return [];
+}
+
+function dockerImageTokens(image: string) {
+  const withoutDigest = image.split("@")[0];
+  const withoutTag = withoutDigest.replace(/:[^/:]+$/, "");
+  const parts = withoutTag.split("/").filter(Boolean);
+  const repo = parts.at(-1) ?? withoutTag;
+  return [repo, repo.replace(/^library\//, ""), withoutTag];
 }
 
 export async function cveSeverityCounts(sinceMs?: number) {

@@ -20,6 +20,25 @@ const STATE_FILE = process.env.STATE_FILE ?? "./lum-agent.json";
 const POLL = parseInt(process.env.POLL_INTERVAL ?? "15") * 1000;
 
 type State = { instance_id: string; agent_token: string };
+type PackageInventory = { name: string; version?: string; source?: string }[];
+type DockerInventory = {
+  containers: {
+    id: string;
+    name: string;
+    image: string;
+    imageId?: string;
+    state?: string;
+    status?: string;
+  }[];
+  images: {
+    id: string;
+    repository: string;
+    tag: string;
+    digest?: string;
+    created?: string;
+    size?: string;
+  }[];
+};
 
 // ---------- system facts ----------
 
@@ -51,8 +70,13 @@ function readOsRelease(): { name?: string; version?: string } {
   }
 }
 
-function facts() {
+let inventoryCache:
+  | { expiresAt: number; packages: PackageInventory; docker: DockerInventory }
+  | null = null;
+
+async function facts() {
   const os = readOsRelease();
+  const inventory = await collectInventory();
   return {
     hostname: hostname(),
     os_name: os.name ?? "Linux",
@@ -60,6 +84,106 @@ function facts() {
     kernel: release(),
     arch: arch(),
     pkg_manager: detectPkgMgr(),
+    packages: inventory.packages,
+    docker: inventory.docker,
+  };
+}
+
+async function collectInventory() {
+  const now = Date.now();
+  if (inventoryCache && inventoryCache.expiresAt > now) return inventoryCache;
+  const next = {
+    expiresAt: now + 10 * 60_000,
+    packages: await collectPackages(),
+    docker: await collectDocker(),
+  };
+  inventoryCache = next;
+  return next;
+}
+
+async function collectPackages(): Promise<PackageInventory> {
+  const parseLines = (txt: string, source: string) =>
+    txt
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const [name, version] = line.split("\t");
+        return { name, version, source };
+      })
+      .filter((p) => /^[a-zA-Z0-9._+:-]+$/.test(p.name))
+      .slice(0, 5000);
+
+  switch (PM) {
+    case "apt": {
+      const r = await run("dpkg-query -W -f='${binary:Package}\\t${Version}\\n'", {
+        timeoutMs: 60_000,
+      });
+      return r.exit_code === 0 ? parseLines(r.stdout, "dpkg") : [];
+    }
+    case "dnf":
+    case "yum": {
+      const r = await run("rpm -qa --qf '%{NAME}\\t%{VERSION}-%{RELEASE}\\n'", {
+        timeoutMs: 60_000,
+      });
+      return r.exit_code === 0 ? parseLines(r.stdout, "rpm") : [];
+    }
+    case "pacman": {
+      const r = await run("pacman -Q | awk '{print $1 \"\\t\" $2}'", {
+        timeoutMs: 60_000,
+      });
+      return r.exit_code === 0 ? parseLines(r.stdout, "pacman") : [];
+    }
+    case "zypper": {
+      const r = await run("rpm -qa --qf '%{NAME}\\t%{VERSION}-%{RELEASE}\\n'", {
+        timeoutMs: 60_000,
+      });
+      return r.exit_code === 0 ? parseLines(r.stdout, "rpm") : [];
+    }
+    default:
+      return [];
+  }
+}
+
+async function collectDocker(): Promise<DockerInventory> {
+  if (!existsSync("/usr/bin/docker") && !existsSync("/usr/local/bin/docker")) {
+    return { containers: [], images: [] };
+  }
+  const [containers, images] = await Promise.all([
+    run("docker ps -a --format '{{.ID}}\\t{{.Names}}\\t{{.Image}}\\t{{.ImageID}}\\t{{.State}}\\t{{.Status}}'", {
+      timeoutMs: 30_000,
+    }),
+    run("docker images --digests --format '{{.ID}}\\t{{.Repository}}\\t{{.Tag}}\\t{{.Digest}}\\t{{.CreatedSince}}\\t{{.Size}}'", {
+      timeoutMs: 30_000,
+    }),
+  ]);
+  return {
+    containers:
+      containers.exit_code === 0
+        ? containers.stdout
+            .split("\n")
+            .map((line) => line.trim())
+            .filter(Boolean)
+            .map((line) => {
+              const [id, name, image, imageId, state, status] = line.split("\t");
+              return { id, name, image, imageId, state, status };
+            })
+            .filter((c) => c.id && c.name && c.image)
+            .slice(0, 500)
+        : [],
+    images:
+      images.exit_code === 0
+        ? images.stdout
+            .split("\n")
+            .map((line) => line.trim())
+            .filter(Boolean)
+            .map((line) => {
+              const [id, repository, tag, digest, created, size] = line.split("\t");
+              return { id, repository, tag, digest, created, size };
+            })
+            .filter((i) => i.id && i.repository && i.repository !== "<none>")
+            .slice(0, 500)
+        : [],
   };
 }
 
@@ -195,7 +319,7 @@ async function loadOrEnroll(): Promise<State> {
   const enroll = process.env.ENROLL_TOKEN;
   if (!enroll)
     throw new Error("No state file and ENROLL_TOKEN not set; cannot enroll");
-  const f = facts();
+  const f = await facts();
   const res = await fetch(`${HUB}/api/agent/enroll`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -220,7 +344,7 @@ async function heartbeat(state: State) {
       authorization: `Bearer ${state.agent_token}`,
     },
     body: JSON.stringify({
-      facts: facts(),
+      facts: await facts(),
       updates_available: state_updates,
     }),
   }).catch((e) => console.error("[agent] heartbeat failed:", e));

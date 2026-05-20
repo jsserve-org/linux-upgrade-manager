@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { listCves, cveSeverityCounts, lastCveSync } from "@/lib/queries";
+import { affectedCveSeverityCounts, lastCveSync, listAffectedCves } from "@/lib/queries";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SeverityBadge } from "@/components/app/severity-badge";
@@ -29,13 +29,13 @@ export default async function CvesPage({
   const sev = sp.severity ? (sp.severity.split(",") as any) : undefined;
 
   const [cves, counts7d, lastSync] = await Promise.all([
-    listCves({
+    listAffectedCves({
       q: sp.q,
       severity: sev,
       cpeContains: sp.cpe,
       limit: 250,
     }),
-    cveSeverityCounts(Date.now() - 7 * 86_400_000),
+    affectedCveSeverityCounts(Date.now() - 7 * 86_400_000),
     lastCveSync(),
   ]);
 
@@ -44,20 +44,20 @@ export default async function CvesPage({
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <div className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-            vulnerability intel · nvd
+            vulnerability intel · affected fleet
           </div>
           <h1 className="mt-1.5 text-[26px] font-semibold tracking-tight">
-            CVE feed
+            Affected CVEs
           </h1>
           <p className="mt-1 text-[13px] text-muted-foreground">
-            Published & recently-modified CVEs from the National Vulnerability
-            Database. Last sync {ago(lastSync)}.
+            CVEs whose affected products match your enrolled hosts, packages,
+            Docker containers, or Docker images. Last sync {ago(lastSync)}.
           </p>
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="outline">
             <Activity className="h-3 w-3" />
-            <span className="ml-1">{cves.length} loaded</span>
+            <span className="ml-1">{cves.length} affected</span>
           </Badge>
           <SyncButton />
         </div>
@@ -98,7 +98,7 @@ export default async function CvesPage({
                     <div className="mt-3 text-[14px] font-medium">No CVEs match</div>
                     <div className="mt-1 text-[12px] text-muted-foreground">
                       {lastSync
-                        ? "Try clearing filters or running a sync."
+                        ? "No synced CVEs currently match your enrolled hosts."
                         : "No data yet. Click ‘Sync now’ to fetch from NVD."}
                     </div>
                   </div>
@@ -132,7 +132,26 @@ export default async function CvesPage({
                   {new Date(c.publishedAt).toLocaleDateString()}
                 </TableCell>
                 <TableCell className="font-mono text-[11.5px] text-muted-foreground">
-                  {c.cpes.length > 0 ? `${c.cpes.length} cpe${c.cpes.length === 1 ? "" : "s"}` : "—"}
+                  <div className="space-y-1">
+                    {c.affected.slice(0, 3).map((a) => (
+                      <div key={a.instanceId} className="truncate">
+                        <Link
+                          href={`/instances/${a.instanceId}`}
+                          className="text-foreground/90 hover:text-[hsl(var(--accent))]"
+                        >
+                          {a.hostname}
+                        </Link>
+                        <div className="truncate text-[10px] text-muted-foreground/80">
+                          {a.reasons.slice(0, 2).join(" · ")}
+                        </div>
+                      </div>
+                    ))}
+                    {c.affected.length > 3 && (
+                      <div className="text-[10px] text-muted-foreground/80">
+                        +{c.affected.length - 3} more
+                      </div>
+                    )}
+                  </div>
                 </TableCell>
               </TableRow>
             ))}

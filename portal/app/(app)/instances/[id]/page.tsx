@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronRight, Cpu, ArrowUpCircle, Clock, Terminal as TerminalIcon } from "lucide-react";
+import { Box, ChevronRight, Cpu, ArrowUpCircle, Clock, Terminal as TerminalIcon } from "lucide-react";
 import { getInstance, listJobsForInstance } from "@/lib/queries";
 import type { Job, Instance } from "@/lib/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -154,8 +154,82 @@ export default async function InstancePage({
         </Card>
       </div>
 
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <Card className="p-0">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Box className="h-3.5 w-3.5 text-muted-foreground" />
+              <CardTitle>Docker inventory</CardTitle>
+            </div>
+            <span className="font-mono text-[10.5px] uppercase tracking-wider text-muted-foreground">
+              {instance.dockerInventory.containers.length} containers · {instance.dockerInventory.images.length} images
+            </span>
+          </CardHeader>
+          {instance.dockerInventory.containers.length === 0 ? (
+            <div className="px-4 py-8 text-center text-[12.5px] text-muted-foreground">
+              No Docker containers reported.
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead>Container</TableHead>
+                  <TableHead>Image</TableHead>
+                  <TableHead className="w-[90px]">State</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {instance.dockerInventory.containers.slice(0, 8).map((c) => (
+                  <TableRow key={c.id}>
+                    <TableCell className="font-mono text-[11.5px]">{c.name}</TableCell>
+                    <TableCell className="max-w-[320px] truncate font-mono text-[11.5px] text-muted-foreground">
+                      {c.image}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={c.state === "running" ? "accent" : "outline"}>
+                        {c.state ?? "?"}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </Card>
+
+        <Card className="p-0">
+          <CardHeader>
+            <CardTitle>Package inventory</CardTitle>
+            <span className="font-mono text-[10.5px] uppercase tracking-wider text-muted-foreground">
+              {instance.packageInventory.length} packages
+            </span>
+          </CardHeader>
+          {instance.packageInventory.length === 0 ? (
+            <div className="px-4 py-8 text-center text-[12.5px] text-muted-foreground">
+              No package inventory reported yet.
+            </div>
+          ) : (
+            <div className="grid max-h-72 grid-cols-1 gap-x-3 overflow-auto p-4 sm:grid-cols-2">
+              {instance.packageInventory.slice(0, 120).map((pkg) => (
+                <div
+                  key={pkg.name}
+                  className="flex min-w-0 items-center justify-between gap-2 border-b border-border/60 py-1.5"
+                >
+                  <span className="truncate font-mono text-[11.5px] text-foreground/90">
+                    {pkg.name}
+                  </span>
+                  <span className="truncate font-mono text-[10px] text-muted-foreground">
+                    {pkg.version}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      </div>
+
       {/* OS-matched CVEs */}
-      <InstanceCves osName={instance.osName} />
+      <InstanceCves instance={instance} />
 
       {/* job history */}
       <Card className="p-0">

@@ -23,6 +23,31 @@ export const instances = pgTable("instances", {
   lastSeen: bigint("last_seen", { mode: "number" }),
   enrolledAt: bigint("enrolled_at", { mode: "number" }).notNull(),
   tags: jsonb("tags").$type<string[]>().notNull().default([]),
+  packageInventory: jsonb("package_inventory")
+    .$type<{ name: string; version?: string; source?: string }[]>()
+    .notNull()
+    .default([]),
+  dockerInventory: jsonb("docker_inventory")
+    .$type<{
+      containers: {
+        id: string;
+        name: string;
+        image: string;
+        imageId?: string;
+        state?: string;
+        status?: string;
+      }[];
+      images: {
+        id: string;
+        repository: string;
+        tag: string;
+        digest?: string;
+        created?: string;
+        size?: string;
+      }[];
+    }>()
+    .notNull()
+    .default({ containers: [], images: [] }),
 });
 
 export const jobs = pgTable(
