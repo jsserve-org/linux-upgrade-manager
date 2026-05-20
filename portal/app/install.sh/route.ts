@@ -54,7 +54,8 @@ WantedBy=multi-user.target
 EOF
 
 systemctl daemon-reload
-systemctl enable --now lum-agent.service
+systemctl enable lum-agent.service >/dev/null
+systemctl restart lum-agent.service
 echo "[lum] agent running. tail logs:  journalctl -u lum-agent -f"
 `;
   return new Response(script, {
