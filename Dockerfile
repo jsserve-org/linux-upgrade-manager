@@ -4,7 +4,7 @@
 # ============================================
 # Stage 0: Agent Builder (Bun)
 # ============================================
-FROM oven/bun:1-alpine AS agent-builder
+FROM oven/bun:1 AS agent-builder
 WORKDIR /agent
 COPY agent/package.json agent/agent.ts agent/build.ts ./
 RUN bun install
