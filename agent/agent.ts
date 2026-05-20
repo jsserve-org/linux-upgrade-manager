@@ -116,28 +116,32 @@ async function collectPackages(): Promise<PackageInventory> {
 
   switch (PM) {
     case "apt": {
-      const r = await run("dpkg-query -W -f='${binary:Package}\\t${Version}\\n'", {
+      const r = await run("/usr/bin/dpkg-query -W -f='${binary:Package}\\t${Version}\\n'", {
         timeoutMs: 60_000,
       });
+      if (r.exit_code !== 0) console.error("[agent] package inventory failed:", r.stderr.trim());
       return r.exit_code === 0 ? parseLines(r.stdout, "dpkg") : [];
     }
     case "dnf":
     case "yum": {
-      const r = await run("rpm -qa --qf '%{NAME}\\t%{VERSION}-%{RELEASE}\\n'", {
+      const r = await run("/usr/bin/rpm -qa --qf '%{NAME}\\t%{VERSION}-%{RELEASE}\\n'", {
         timeoutMs: 60_000,
       });
+      if (r.exit_code !== 0) console.error("[agent] package inventory failed:", r.stderr.trim());
       return r.exit_code === 0 ? parseLines(r.stdout, "rpm") : [];
     }
     case "pacman": {
-      const r = await run("pacman -Q | awk '{print $1 \"\\t\" $2}'", {
+      const r = await run("/usr/bin/pacman -Q | /usr/bin/awk '{print $1 \"\\t\" $2}'", {
         timeoutMs: 60_000,
       });
+      if (r.exit_code !== 0) console.error("[agent] package inventory failed:", r.stderr.trim());
       return r.exit_code === 0 ? parseLines(r.stdout, "pacman") : [];
     }
     case "zypper": {
-      const r = await run("rpm -qa --qf '%{NAME}\\t%{VERSION}-%{RELEASE}\\n'", {
+      const r = await run("/usr/bin/rpm -qa --qf '%{NAME}\\t%{VERSION}-%{RELEASE}\\n'", {
         timeoutMs: 60_000,
       });
+      if (r.exit_code !== 0) console.error("[agent] package inventory failed:", r.stderr.trim());
       return r.exit_code === 0 ? parseLines(r.stdout, "rpm") : [];
     }
     default:
@@ -150,13 +154,19 @@ async function collectDocker(): Promise<DockerInventory> {
     return { containers: [], images: [] };
   }
   const [containers, images] = await Promise.all([
-    run("docker ps -a --format '{{.ID}}\\t{{.Names}}\\t{{.Image}}\\t{{.ImageID}}\\t{{.State}}\\t{{.Status}}'", {
+    run("docker ps -a --no-trunc --format '{{.ID}}\\t{{.Names}}\\t{{.Image}}\\t{{.State}}\\t{{.Status}}'", {
       timeoutMs: 30_000,
     }),
-    run("docker images --digests --format '{{.ID}}\\t{{.Repository}}\\t{{.Tag}}\\t{{.Digest}}\\t{{.CreatedSince}}\\t{{.Size}}'", {
+    run("docker images --digests --no-trunc --format '{{.ID}}\\t{{.Repository}}\\t{{.Tag}}\\t{{.Digest}}\\t{{.CreatedSince}}\\t{{.Size}}'", {
       timeoutMs: 30_000,
     }),
   ]);
+  if (containers.exit_code !== 0) {
+    console.error("[agent] docker container inventory failed:", containers.stderr.trim());
+  }
+  if (images.exit_code !== 0) {
+    console.error("[agent] docker image inventory failed:", images.stderr.trim());
+  }
   return {
     containers:
       containers.exit_code === 0
@@ -165,8 +175,8 @@ async function collectDocker(): Promise<DockerInventory> {
             .map((line) => line.trim())
             .filter(Boolean)
             .map((line) => {
-              const [id, name, image, imageId, state, status] = line.split("\t");
-              return { id, name, image, imageId, state, status };
+              const [id, name, image, state, status] = line.split("\t");
+              return { id, name, image, imageId: undefined, state, status };
             })
             .filter((c) => c.id && c.name && c.image)
             .slice(0, 500)
@@ -337,7 +347,7 @@ async function loadOrEnroll(): Promise<State> {
 }
 
 async function heartbeat(state: State) {
-  await fetch(`${HUB}/api/agent/heartbeat`, {
+  const res = await fetch(`${HUB}/api/agent/heartbeat`, {
     method: "POST",
     headers: {
       "content-type": "application/json",
@@ -348,12 +358,17 @@ async function heartbeat(state: State) {
       updates_available: state_updates,
     }),
   }).catch((e) => console.error("[agent] heartbeat failed:", e));
+  if (res && !res.ok) console.error("[agent] heartbeat failed:", res.status);
 }
 
 async function pollAndRun(state: State) {
   const res = await fetch(`${HUB}/api/agent/jobs`, {
     headers: { authorization: `Bearer ${state.agent_token}` },
+  }).catch((e) => {
+    console.error("[agent] poll failed:", e);
+    return null;
   });
+  if (!res) return;
   if (!res.ok) {
     console.error("[agent] poll failed:", res.status);
     return;
