@@ -18,7 +18,7 @@ export default async function EnrollPage() {
   const proto = h.get("x-forwarded-proto") ?? "http";
   const hubUrl = `${proto}://${host}`;
 
-  const oneLiner = `curl -fsSL ${hubUrl}/install.sh | sudo HUB_URL=${hubUrl} ENROLL_TOKEN=<token> bash`;
+  const oneLiner = `curl -fsSL ${hubUrl}/install.sh | sudo env HUB_URL=${hubUrl} ENROLL_TOKEN=<token> bash`;
 
   return (
     <div className="mx-auto max-w-[1100px] space-y-8">

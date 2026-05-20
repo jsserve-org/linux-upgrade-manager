@@ -119,7 +119,7 @@ ssh root@host "cd /tmp && HUB_URL=http://hub.example.com:3001 \
 ```bash
 # Automatic install (one-liner)
 curl -fsSL http://your-portal:3001/install.sh | \
-  HUB_URL=http://your-portal:3001 ENROLL_TOKEN=xxx bash
+  sudo env HUB_URL=http://your-portal:3001 ENROLL_TOKEN=xxx bash
 
 # Or manual install
 wget http://your-portal:3001/api/install/agent/x64 -O lum-agent

@@ -4,7 +4,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 // GET /install.sh — returns a self-contained installer that pulls the binary
-// from this same hub. Designed for: curl -fsSL http://hub/install.sh | sudo HUB_URL=… ENROLL_TOKEN=… bash
+// from this same hub. Designed for: curl -fsSL http://hub/install.sh | sudo env HUB_URL=... ENROLL_TOKEN=... bash
 export async function GET(req: NextRequest) {
   const origin = req.nextUrl.origin;
   const script = `#!/usr/bin/env bash

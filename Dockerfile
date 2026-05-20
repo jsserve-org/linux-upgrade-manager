@@ -48,9 +48,9 @@ RUN addgroup --system --gid 1001 nodejs && \
 # Create uploads directory
 RUN mkdir -p /app/uploads && chown nextjs:nodejs /app/uploads
 
-# Copy agent binaries to expected location (../agent/dist from /app)
-COPY --from=agent-builder /agent/dist/lum-agent-linux-x64 /app/agent/dist/lum-agent-linux-x64
-COPY --from=agent-builder /agent/dist/lum-agent-linux-arm64 /app/agent/dist/lum-agent-linux-arm64
+# Copy agent binaries to the standalone runtime location.
+COPY --from=agent-builder --chown=nextjs:nodejs /agent/dist/lum-agent-linux-x64 /agent/dist/lum-agent-linux-x64
+COPY --from=agent-builder --chown=nextjs:nodejs /agent/dist/lum-agent-linux-arm64 /agent/dist/lum-agent-linux-arm64
 
 # Copy portal files
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public

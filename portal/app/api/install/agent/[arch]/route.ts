@@ -6,10 +6,14 @@ import { Readable } from "node:stream";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// Look for binaries beside the portal (../agent/dist) — works in dev and when
-// the repo is deployed as-is. Override with LUM_AGENT_DIST=/abs/path if needed.
-const DIST_DIR =
-  process.env.LUM_AGENT_DIST ?? resolve(process.cwd(), "../agent/dist");
+// Look for binaries in both local-dev and standalone Docker layouts. Override
+// with LUM_AGENT_DIST=/abs/path if needed.
+const DIST_DIRS = [
+  process.env.LUM_AGENT_DIST,
+  resolve(process.cwd(), "../agent/dist"),
+  resolve(process.cwd(), "agent/dist"),
+  "/agent/dist",
+].filter(Boolean) as string[];
 
 const ALLOWED = new Set(["x64", "arm64"]);
 
@@ -21,10 +25,11 @@ export async function GET(
   if (!ALLOWED.has(arch))
     return new Response("unsupported arch", { status: 400 });
 
-  const file = join(DIST_DIR, `lum-agent-linux-${arch}`);
-  if (!existsSync(file))
+  const filename = `lum-agent-linux-${arch}`;
+  const file = DIST_DIRS.map((dir) => join(dir, filename)).find(existsSync);
+  if (!file)
     return new Response(
-      `binary not built yet — run 'bun run build' in /agent\nlooked at: ${file}`,
+      `binary not built yet — run 'bun run build' in /agent\nlooked at:\n${DIST_DIRS.map((dir) => `- ${join(dir, filename)}`).join("\n")}`,
       { status: 404 }
     );
 
